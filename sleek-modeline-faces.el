@@ -15,7 +15,7 @@
   :prefix "sleek-modeline-")
 
 (defgroup sleek-modeline-faces nil
-  "CUstomization group for faces used by `sleek-modeline'."
+  "Customization group for faces used by `sleek-modeline'."
   :group 'sleek-modeline
   :group 'faces)
 
