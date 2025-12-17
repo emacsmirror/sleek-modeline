@@ -24,6 +24,11 @@
   "Face for buffer name in `sleek-modeline'."
   :group 'sleek-modeline-faces)
 
+(defface sleek-modeline-buffer-name-modified-face
+  '((t (:inherit warning :weight bold)))
+  "Face for modified buffer name in `sleek-modeline'."
+  :group 'sleek-modeline-faces)
+
 (defface sleek-modeline-major-mode-face
   '((t (:inherit font-lock-doc-face :slant italic)))
   "Face for major mode in `sleek-modeline'."
