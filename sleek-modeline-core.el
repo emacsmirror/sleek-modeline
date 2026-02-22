@@ -1,4 +1,4 @@
-;;; sleek-modeline-helpers.el --- Helper functions for sleek-modeline -*- lexical-binding: t; -*-
+;;; sleek-modeline-core.el --- Helper functions for sleek-modeline -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Abidán Brito Clavijo
 ;; Author: Abidán Brito Clavijo <abidan.brito@gmail.com>
@@ -9,6 +9,9 @@
 ;; customizable variables and face definitions.
 
 ;;; Code:
+
+(require 'color)
+(require 'cl-lib)
 
 ;; NOTE(abi): optional dependency; only gets loaded if available.
 (declare-function nerd-icons-icon-for-file "nerd-icons")
@@ -60,13 +63,19 @@ Requires `nerd-icons' package to be installed."
 
 (defcustom sleek-modeline-highlight-modified-buffer-name t
   "Whether to highlight the buffer name when it has unsaved changes.
-When non-nil, modified buffers will use the `sleek-modeline-buffer-name-modified-face'."
+When non-nil, modified buffers will use
+`sleek-modeline-buffer-name-modified-face'."
   :type 'boolean
   :group 'sleek-modeline)
 
 (defcustom sleek-modeline-show-modal-state nil
   "Whether to show modal editing state (Evil/Meow) marker."
   :type 'boolean
+  :group 'sleek-modeline)
+
+(defcustom sleek-modeline-separator " » "
+  "Separator string used between segments in the mode-line."
+  :type 'string
   :group 'sleek-modeline)
 
 (defface sleek-modeline-buffer-name-face
@@ -80,18 +89,34 @@ When non-nil, modified buffers will use the `sleek-modeline-buffer-name-modified
   :group 'sleek-modeline-faces)
 
 (defface sleek-modeline-major-mode-face
-  '((t (:inherit font-lock-doc-face :slant italic)))
+  '((t (:inherit font-lock-function-name-face :weight bold :slant normal)))
   "Face for major mode in `sleek-modeline'."
   :group 'sleek-modeline-faces)
 
+(defface sleek-modeline-modal-normal-face
+  '((t (:weight bold :foreground "#1e1e2e" :background "#89b4fa")))
+  "Face for normal modal state." :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-modal-insert-face
+  '((t (:weight bold :foreground "#1e1e2e" :background "#a6e3a1")))
+  "Face for insert modal state." :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-modal-visual-face
+  '((t (:weight bold :foreground "#1e1e2e" :background "#cba6f7")))
+  "Face for visual modal state." :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-modal-other-face
+  '((t (:weight bold :foreground "#1e1e2e" :background "#f38ba8")))
+  "Face for other modal states." :group 'sleek-modeline-faces)
+
 (defface sleek-modeline-vc-face
-  '((t (:inherit font-lock-comment-face)))
+  '((t (:inherit font-lock-comment-face :weight bold :slant italic)))
   "Face for version control info in `sleek-modeline'.
 Used when the repository is in a clean state."
   :group 'sleek-modeline-faces)
 
 (defface sleek-modeline-vc-modified-face
-  '((t (:inherit font-lock-variable-name-face)))
+  '((t (:inherit font-lock-variable-name-face :weight bold :slant italic)))
   "Face for version control info when there are modifications.
 Used for edited, added, or needs-update states."
   :group 'sleek-modeline-faces)
@@ -100,6 +125,16 @@ Used for edited, added, or needs-update states."
   '((t (:inherit error)))
   "Face for version control info when there are conflicts.
 Used for removed, conflict, unregistered, or needs-merge states."
+  :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-line-ending-face
+  '((t (:inherit font-lock-doc-face :slant normal)))
+  "Face for the line ending indicator in `sleek-modeline'."
+  :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-separator-face
+  '((t (:inherit shadow)))
+  "Face for the separator between segments in `sleek-modeline'."
   :group 'sleek-modeline-faces)
 
 (defun sleek-modeline-buffer-name ()
@@ -121,9 +156,12 @@ Changes color when buffer is modified."
       (propertize buffer-name 'face face))))
 
 (defun sleek-modeline-major-mode ()
-  "Show major mode with custom face."
-  (propertize (substring-no-properties (format-mode-line mode-name))
-              'face 'sleek-modeline-major-mode-face))
+  "Show major mode with custom face, stripping mode-line suffix indicators.
+For example, \"Emacs-Lisp/l\" becomes \"Emacs-Lisp\" and \"C++//\" becomes \"C++\"."
+  (let ((name (replace-regexp-in-string
+               "/.*\\'" ""
+               (substring-no-properties (format-mode-line mode-name)))))
+    (propertize name 'face 'sleek-modeline-major-mode-face)))
 
 (defun sleek-modeline--modal-state ()
   "Return the current modal editing state as a single letter, or nil.
@@ -155,11 +193,14 @@ Checks `evil-mode' first, then `meow-mode'.  Returns nil if neither is active."
      (t nil))))
 
 (defun sleek-modeline-modal-state-marker ()
-  "Return formatted modal state marker like '<N> ' or an empty string."
-  (let ((state (sleek-modeline--modal-state)))
-    (if state
-        (format "<%s> " state)
-      "")))
+  "Return a propertized, modal state marker with state-dependent background."
+  (when-let ((state (sleek-modeline--modal-state)))
+    (let ((face (pcase state
+                  ("N" 'sleek-modeline-modal-normal-face)
+                  ("I" 'sleek-modeline-modal-insert-face)
+                  ("V" 'sleek-modeline-modal-visual-face)
+                  (_   'sleek-modeline-modal-other-face))))
+      (propertize (format " %s " state) 'face face))))
 
 (defun sleek-modeline--get-height ()
   "Get mode-line height based on `sleek-modeline-size' or `sleek-modeline-height'.
@@ -188,9 +229,45 @@ Returns the box line-width value to use for the mode-line."
         (set-face-attribute 'mode-line-inactive nil
                             :box `(:line-width ,height :color ,bg)
                             :underline nil)))
-    ;; Force redisplay
+
+    (sleek-modeline--update-separator-face)
     (force-mode-line-update t)))
 
-(provide 'sleek-modeline-core)
+(defun sleek-modeline--line-ending ()
+  "Return a string describing the buffer's line ending convention."
+  (pcase (coding-system-eol-type buffer-file-coding-system)
+    (0 "LF")
+    (1 "CRLF")
+    (2 "CR")
+    (_ "—")))
 
+(defun sleek-modeline-line-ending-indicator ()
+  "Return a propertized line ending string, or empty string for non-file buffers."
+  (if buffer-file-name
+      (propertize (sleek-modeline--line-ending)
+                  'face 'sleek-modeline-line-ending-face
+                  'help-echo "Buffer line endings")
+    ""))
+
+(defun sleek-modeline--separator ()
+  "Return the propertized segment separator."
+  (propertize sleek-modeline-separator 'face 'sleek-modeline-separator-face))
+
+
+(defun sleek-modeline--blend-colors (c1 c2 alpha)
+  "Blend C1 toward C2 by ALPHA (0.0 = C2, 1.0 = C1)."
+  (apply #'color-rgb-to-hex
+         (cl-mapcar (lambda (a b) (+ (* alpha a) (* (- 1.0 alpha) b)))
+                    (color-name-to-rgb c1)
+                    (color-name-to-rgb c2))))
+
+(defun sleek-modeline--update-separator-face ()
+  "Set separator face to a dimmed version of the shadow face foreground."
+  (let ((shadow-fg (face-foreground 'shadow nil t))
+        (bg (face-background 'default nil t)))
+    (when (and shadow-fg bg)
+      (set-face-attribute 'sleek-modeline-separator-face nil
+                          :foreground (sleek-modeline--blend-colors shadow-fg bg 0.5)))))
+
+(provide 'sleek-modeline-core)
 ;;; sleek-modeline-core.el ends here
