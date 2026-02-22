@@ -85,6 +85,22 @@ When non-nil, modified buffers will use
   "Face for major mode in `sleek-modeline'."
   :group 'sleek-modeline-faces)
 
+(defface sleek-modeline-modal-normal-face
+  '((t (:weight bold :foreground "#1e1e2e" :background "#89b4fa")))
+  "Face for normal modal state." :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-modal-insert-face
+  '((t (:weight bold :foreground "#1e1e2e" :background "#a6e3a1")))
+  "Face for insert modal state." :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-modal-visual-face
+  '((t (:weight bold :foreground "#1e1e2e" :background "#cba6f7")))
+  "Face for visual modal state." :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-modal-other-face
+  '((t (:weight bold :foreground "#1e1e2e" :background "#f38ba8")))
+  "Face for other modal states." :group 'sleek-modeline-faces)
+
 (defface sleek-modeline-vc-face
   '((t (:inherit font-lock-comment-face)))
   "Face for version control info in `sleek-modeline'.
@@ -164,11 +180,14 @@ Checks `evil-mode' first, then `meow-mode'.  Returns nil if neither is active."
      (t nil))))
 
 (defun sleek-modeline-modal-state-marker ()
-  "Return formatted modal state marker like '<N> ' or an empty string."
-  (let ((state (sleek-modeline--modal-state)))
-    (if state
-        (format "<%s> " state)
-      "")))
+  "Return a propertized, modal state marker with state-dependent background."
+  (when-let ((state (sleek-modeline--modal-state)))
+    (let ((face (pcase state
+                  ("N" 'sleek-modeline-modal-normal-face)
+                  ("I" 'sleek-modeline-modal-insert-face)
+                  ("V" 'sleek-modeline-modal-visual-face)
+                  (_   'sleek-modeline-modal-other-face))))
+      (propertize (format " %s " state) 'face face))))
 
 (defun sleek-modeline--get-height ()
   "Get mode-line height based on `sleek-modeline-size' or `sleek-modeline-height'.
