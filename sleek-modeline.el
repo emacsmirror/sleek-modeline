@@ -22,14 +22,14 @@
   '("%e"
     " "
     (:eval (when-let ((marker (sleek-modeline-modal-state-marker)))
-	     (concat marker " ")))
+             (concat marker " ")))
     (:eval (sleek-modeline-buffer-name))
     mode-line-format-right-align
     (:eval (when-let ((eol (sleek-modeline-line-ending-indicator)))
              (unless (string-empty-p eol)
-               (concat eol " "))))
+               (concat eol (sleek-modeline--separator)))))
     (:eval (when-let ((vc (sleek-modeline-vc)))
-             (concat vc " ")))
+             (concat vc (sleek-modeline--separator))))
     (:eval (sleek-modeline-major-mode))
     " ")
   "The sleek mode-line format.")

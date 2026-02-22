@@ -70,6 +70,11 @@ When non-nil, modified buffers will use
   :type 'boolean
   :group 'sleek-modeline)
 
+(defcustom sleek-modeline-separator " » "
+  "Separator string used between segments in the mode-line."
+  :type 'string
+  :group 'sleek-modeline)
+
 (defface sleek-modeline-buffer-name-face
   '((t (:inherit mode-line-buffer-id :weight bold)))
   "Face for buffer name in `sleek-modeline'."
@@ -122,6 +127,11 @@ Used for removed, conflict, unregistered, or needs-merge states."
 (defface sleek-modeline-line-ending-face
   '((t (:inherit font-lock-doc-face :slant normal)))
   "Face for the line ending indicator in `sleek-modeline'."
+  :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-separator-face
+  '((t (:inherit font-lock-comment-face)))
+  "Face for the separator between segments in `sleek-modeline'."
   :group 'sleek-modeline-faces)
 
 (defun sleek-modeline-buffer-name ()
@@ -234,6 +244,10 @@ Returns the box line-width value to use for the mode-line."
                   'face 'sleek-modeline-line-ending-face
                   'help-echo "Buffer line endings")
     ""))
+
+(defun sleek-modeline--separator ()
+  "Return the propertized segment separator."
+  (propertize sleek-modeline-separator 'face 'sleek-modeline-separator-face))
 
 (provide 'sleek-modeline-core)
 ;;; sleek-modeline-core.el ends here
