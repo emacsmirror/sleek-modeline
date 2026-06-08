@@ -20,14 +20,20 @@
   "List of registered segment descriptors (plists).
 Each entry is a plist with keys.
   :name       symbol - Unique segment identifier.
-  :fn         symbol — Display function (returns string or nil).
+  :fn         symbol - Display function (returns string or nil).
   :side       `left' or `right'.
   :priority   integer - Lower means closer to the outer edge.
-  :separator  nil | t | STRING — nil: no suffix; t: standard separator;
+  :separator  nil | t | STRING - nil: no suffix; t: standard separator;
               string: literal string to append after a non-nil result.
   :condition  symbol - Variable that must be non-nil to display the segment.
   :on-enable  symbol - Function called when `sleek-modeline-mode' activates.
   :on-disable symbol - Function called when `sleek-modeline-mode' deactivates.")
+
+(defvar sleek-modeline--major-mode-keymap
+  (let ((map (make-sparse-keymap)))
+    (define-key map [mode-line down-mouse-1] #'sleek-modeline--minor-modes-menu)
+    map)
+  "Keymap active on the major mode segment of `sleek-modeline'.")
 
 (defun sleek-modeline-register-segment (name &rest props)
   "Register a segment under NAME with the given PROPS plist.
@@ -110,14 +116,29 @@ When non-nil, modified buffers will use
   "Face for buffer name in `sleek-modeline'."
   :group 'sleek-modeline-faces)
 
+(defface sleek-modeline-buffer-name-highlight-face
+  '((t (:inherit sleek-modeline-buffer-name-face :underline t)))
+  "Face used to highlight the buffer name segment on mouse hover."
+  :group 'sleek-modeline-faces)
+
 (defface sleek-modeline-buffer-name-modified-face
   '((t (:inherit warning :weight bold)))
   "Face for modified buffer name in `sleek-modeline'."
   :group 'sleek-modeline-faces)
 
+(defface sleek-modeline-buffer-name-modified-highlight-face
+  '((t (:inherit sleek-modeline-buffer-name-modified-face :underline t)))
+  "Face used to highlight a modified buffer name on mouse hover."
+  :group 'sleek-modeline-faces)
+
 (defface sleek-modeline-major-mode-face
   '((t (:inherit font-lock-function-name-face :weight bold :slant normal)))
   "Face for major mode in `sleek-modeline'."
+  :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-major-mode-highlight-face
+  '((t (:inherit sleek-modeline-major-mode-face :underline t)))
+  "Face used to highlight the major mode segment on mouse hover."
   :group 'sleek-modeline-faces)
 
 (defcustom sleek-modeline-background nil
@@ -196,25 +217,67 @@ the mode-line is inactive according to configuration."
                           (featurep 'nerd-icons))
                  (nerd-icons-icon-for-file file-name)))
          (buffer-name (substring-no-properties (format-mode-line "%b")))
-         (face (if (and sleek-modeline-highlight-modified-buffer-name
-                        (buffer-modified-p))
+         (modified (and sleek-modeline-highlight-modified-buffer-name
+                        (buffer-modified-p)))
+         (face (if modified
                    'sleek-modeline-buffer-name-modified-face
                  'sleek-modeline-buffer-name-face))
+         (highlight-face (if modified
+                             'sleek-modeline-buffer-name-modified-highlight-face
+                           'sleek-modeline-buffer-name-highlight-face))
          (icon (sleek-modeline--maybe-dim-or-hide
                 icon
                 sleek-modeline-hide-file-icon-inactive))
          (buffer-name (sleek-modeline--maybe-dim-or-hide
-                       (propertize buffer-name 'face face) nil)))
+                       (propertize buffer-name
+                                   'face face
+                                   'mouse-face highlight-face
+                                   'help-echo (if file-name
+                                                  (abbreviate-file-name file-name)
+                                                "Buffer is not associated to a file"))
+                       nil)))
     (if icon (concat icon " " buffer-name) buffer-name)))
+
+(defun sleek-modeline--active-minor-modes ()
+  "Return the list of active minor modes in the current buffer."
+  (let (modes)
+    (dolist (mode minor-mode-list)
+      (when (and (boundp mode) (symbol-value mode))
+        (push mode modes)))
+    (nreverse modes)))
+
+(defun sleek-modeline--minor-modes-menu (event)
+  "Pop up a menu of the active minor modes at the mouse EVENT.
+Selecting an entry describes that minor mode."
+  (interactive "@e")
+  (let ((modes (sleek-modeline--active-minor-modes))
+        (map (make-sparse-keymap "Active minor modes")))
+    (if (null modes)
+        (message "No active minor modes")
+      ;; NOTE(abi): `define-key' prepends, so we walk the list in reverse.
+      (dolist (mode (reverse modes))
+        (define-key map (vector mode)
+		    `(menu-item ,(symbol-name mode)
+				(lambda ()
+				  (interactive)
+				  (describe-minor-mode-from-symbol ',mode)))))
+      (popup-menu map event))))
 
 (defun sleek-modeline-major-mode ()
   "Show major mode with custom face, stripping mode-line suffix indicators.
+Clicking the segment pops up a menu of the active minor modes.
 Optionally dim or hide in inactive mode-lines."
   (let ((name (replace-regexp-in-string
                "/.*\\'" ""
                (substring-no-properties (format-mode-line mode-name)))))
     (sleek-modeline--maybe-dim-or-hide
-     (propertize name 'face 'sleek-modeline-major-mode-face)
+     (propertize name
+                 'face 'sleek-modeline-major-mode-face
+                 'mouse-face 'sleek-modeline-major-mode-highlight-face
+                 'help-echo (concat (propertize "mouse-1" 'face
+                                                'sleek-modeline-major-mode-face)
+                                    ": list active minor modes")
+                 'local-map sleek-modeline--major-mode-keymap)
      sleek-modeline-hide-major-mode-inactive)))
 
 (defun sleek-modeline--modal-state ()
@@ -302,7 +365,7 @@ ensuring the modeline is always visually distinct from buffer content."
     (0 "LF")
     (1 "CRLF")
     (2 "CR")
-    (_ "—")))
+    (_ "-")))
 
 (defun sleek-modeline-line-ending-indicator ()
   "Return a propertized line ending string for file-backed buffers, or nil.
