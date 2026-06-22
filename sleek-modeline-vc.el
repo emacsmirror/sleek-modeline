@@ -48,6 +48,24 @@ When non-nil, appends a symbol: `~' modified, `+' added, `-' removed,
   :type 'boolean
   :group 'sleek-modeline)
 
+(defface sleek-modeline-vc-face
+  '((t (:weight bold)))
+  "Face for the branch icon and branch name in `sleek-modeline'.
+Static - does not change with VC state; foreground falls through to mode-line."
+  :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-vc-modified-face
+  '((t (:inherit font-lock-warning-face :weight bold :slant italic)))
+  "Face for version control info when there are modifications.
+Used for edited, added, or needs-update states."
+  :group 'sleek-modeline-faces)
+
+(defface sleek-modeline-vc-conflict-face
+  '((t (:inherit error)))
+  "Face for version control info when there are conflicts.
+Used for removed, conflict, unregistered, or needs-merge states."
+  :group 'sleek-modeline-faces)
+
 (defvar sleek-modeline-vc--enabled nil
   "Non-nil means vc segment hooks are installed globally.")
 
