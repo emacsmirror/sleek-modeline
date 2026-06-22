@@ -22,6 +22,11 @@
   "Face for the line ending indicator in `sleek-modeline'."
   :group 'sleek-modeline-faces)
 
+(defface sleek-modeline-line-ending-highlight-face
+  '((t (:inherit sleek-modeline-line-ending-face :underline t)))
+  "Face used to highlight the line ending segment on mouse hover."
+  :group 'sleek-modeline-faces)
+
 (defun sleek-modeline--line-ending ()
   "Return (SHORT . LONG) descriptions of the buffer's line ending convention.
 SHORT is the compact segment label; LONG is the literal for the hover tooltip."
@@ -39,6 +44,7 @@ Dim or hide in inactive mode-lines according to configuration."
       (sleek-modeline--maybe-dim-or-hide
        (propertize (car style)
                    'face 'sleek-modeline-line-ending-face
+                   'mouse-face 'sleek-modeline-line-ending-highlight-face
                    'help-echo (concat "Line endings: " (cdr style)))
        sleek-modeline-hide-line-ending-inactive))))
 
